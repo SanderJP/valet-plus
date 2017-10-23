@@ -50,6 +50,24 @@ class Brew
     }
 
     /**
+     * Returns list of installed php versions.
+     *
+     * @return array
+     */
+    function installedPhpVersions()
+    {
+        $versions = $this->supportedPhpVersions();
+        $installed = [];
+        foreach($versions as $version) {
+            if($this->installed($version)) {
+                $installed[$version] = $version;
+            }
+        }
+
+        return $installed;
+    }
+
+    /**
      * Get a list of supported PHP versions
      *
      * @return array
@@ -192,15 +210,5 @@ class Brew
         }
 
         throw new DomainException("Unable to determine linked PHP.");
-    }
-
-    /**
-     * Restart the linked PHP-FPM Homebrew service.
-     *
-     * @return void
-     */
-    function restartLinkedPhp()
-    {
-        $this->restartService($this->linkedPhp());
     }
 }

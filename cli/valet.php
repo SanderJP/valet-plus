@@ -32,6 +32,13 @@ if (is_dir(VALET_HOME_PATH)) {
     Site::pruneLinks();
 }
 
+
+$app->command('testing123', function () {
+  PhpFpm::updateConfiguration();
+})->descriptions('Testing123');
+
+
+
 /**
  * Allow Valet to be run more conveniently by allowing the Node proxy to run password-less sudo.
  */

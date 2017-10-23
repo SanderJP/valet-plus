@@ -50,33 +50,36 @@ class PhpFpm
      */
     function updateConfiguration()
     {
-        $contents = $this->files->get($this->fpmConfigPath());
+        $phpVersions = $this->fpmConfigPaths();
+        foreach ($phpVersions as $version => $path) {
+            $contents = $this->files->get($path);
 
-        $contents = preg_replace('/^user = .+$/m', 'user = '.user(), $contents);
-        $contents = preg_replace('/^group = .+$/m', 'group = staff', $contents);
-        $contents = preg_replace('/^listen = .+$/m', 'listen = '.VALET_HOME_PATH.'/valet.sock', $contents);
-        $contents = preg_replace('/^;?listen\.owner = .+$/m', 'listen.owner = '.user(), $contents);
-        $contents = preg_replace('/^;?listen\.group = .+$/m', 'listen.group = staff', $contents);
-        $contents = preg_replace('/^;?listen\.mode = .+$/m', 'listen.mode = 0777', $contents);
-        $contents = preg_replace('/^;?php_admin_value\[error_log\] = .+$/m', 'php_admin_value[error_log] = '.VALET_HOME_PATH.'/Log/php.log', $contents);
+            $contents = preg_replace('/^user = .+$/m', 'user = ' . user(), $contents);
+            $contents = preg_replace('/^group = .+$/m', 'group = staff', $contents);
+            $contents = preg_replace('/^listen = .+$/m', 'listen = ' . VALET_HOME_PATH . '/' . $version . '.sock', $contents);
+            $contents = preg_replace('/^;?listen\.owner = .+$/m', 'listen.owner = ' . user(), $contents);
+            $contents = preg_replace('/^;?listen\.group = .+$/m', 'listen.group = staff', $contents);
+            $contents = preg_replace('/^;?listen\.mode = .+$/m', 'listen.mode = 0777', $contents);
+            $contents = preg_replace('/^;?php_admin_value\[error_log\] = .+$/m', 'php_admin_value[error_log] = ' . VALET_HOME_PATH . '/Log/php.log', $contents);
 
-        $this->files->put($this->fpmConfigPath(), $contents);
+            $this->files->put($path, $contents);
 
-        $systemZoneName = readlink('/etc/localtime');
-        // All versions below High Sierra
-        $systemZoneName = str_replace('/usr/share/zoneinfo/', '', $systemZoneName);
-        // macOS High Sierra has a new location for the timezone info
-        $systemZoneName = str_replace('/var/db/timezone/zoneinfo/', '', $systemZoneName);
-        $contents = $this->files->get(__DIR__.'/../stubs/z-performance.ini');
-        $contents = str_replace('TIMEZONE', $systemZoneName, $contents);
+            $systemZoneName = readlink('/etc/localtime');
+            // All versions below High Sierra
+            $systemZoneName = str_replace('/usr/share/zoneinfo/', '', $systemZoneName);
+            // macOS High Sierra has a new location for the timezone info
+            $systemZoneName = str_replace('/var/db/timezone/zoneinfo/', '', $systemZoneName);
+            $contents = $this->files->get(__DIR__ . '/../stubs/z-performance.ini');
+            $contents = str_replace('TIMEZONE', $systemZoneName, $contents);
 
-        $iniPath = $this->iniPath();
-        $this->files->ensureDirExists($iniPath, user());
-        $this->files->putAsUser($this->iniPath().'z-performance.ini', $contents);
+            $iniPath = $this->iniPath($version);
+            $this->files->ensureDirExists($iniPath, user());
+            $this->files->putAsUser($this->iniPath($version) . 'z-performance.ini', $contents);
+        }
     }
 
-    function iniPath() {
-        $destFile = dirname($this->fpmConfigPath());
+    function iniPath($version) {
+        $destFile = dirname($version);
         $destFile = str_replace('/php-fpm.d', '', $destFile);
         $destFile = $destFile . '/conf.d/';
 
@@ -90,7 +93,7 @@ class PhpFpm
      */
     function restart()
     {
-        $this->brew->restartLinkedPhp();
+        $this->brew->restartService('php56', 'php70', 'php71', 'php72');
     }
 
     /**
@@ -106,18 +109,18 @@ class PhpFpm
     /**
      * Get the path to the FPM configuration file for the current PHP version.
      *
-     * @return string
+     * @return array
      */
-    function fpmConfigPath()
+    function fpmConfigPaths()
     {
-        $confLookup = [
+        $configPaths =  [
             'php72' => '/usr/local/etc/php/7.2/php-fpm.d/www.conf',
             'php71' => '/usr/local/etc/php/7.1/php-fpm.d/www.conf',
             'php70' => '/usr/local/etc/php/7.0/php-fpm.d/www.conf',
             'php56' => '/usr/local/etc/php/5.6/php-fpm.conf',
         ];
 
-        return $confLookup[$this->brew->linkedPhp()];
+        return array_intersect_key($configPaths, $this->brew->installedPhpVersions());
     }
 
     function getExtensions() {
